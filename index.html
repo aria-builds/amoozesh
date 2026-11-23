@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نقشه منظومه شمسی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#05060f;--panel:#10132a;--line:#262b52;--text:#eef0ff;--muted:#9aa0c8;--accent:#ffb84d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',Tahoma,sans-serif;min-height:100vh;overflow-x:hidden}
+#stars{position:fixed;inset:0;z-index:0}
+header{position:relative;z-index:1;text-align:center;padding:20px 16px 4px}
+h1{margin:0;font-weight:900;font-size:clamp(1.5rem,4vw,2.4rem)}
+header p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+main{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;max-width:1200px;margin:0 auto;padding:12px 16px 28px}
+.stage{display:flex;align-items:center;justify-content:center}
+svg{width:100%;height:auto;max-height:80vh;display:block}
+.orbit{fill:none;stroke:#fff;stroke-opacity:.12;stroke-width:1;vector-effect:non-scaling-stroke}
+.morbit{fill:none;stroke:#fff;stroke-opacity:.16;vector-effect:non-scaling-stroke;pointer-events:none}
+.planet{cursor:pointer}
+.planet .hit{fill:transparent}
+.planet .ring{fill:none;stroke:none;pointer-events:none}
+.planet.sel .ring{stroke:var(--accent);stroke-width:2;fill:none}
+.label{fill:var(--muted);font-size:13px;font-family:'Vazirmatn',sans-serif;text-anchor:middle;pointer-events:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;align-self:start;position:sticky;top:12px}
+.panel h2{margin:0 0 4px;font-size:1.6rem;font-weight:900}
+.tag{display:inline-block;background:#1b2048;color:var(--accent);border-radius:99px;padding:2px 10px;font-size:.8rem;margin-bottom:10px}
+.panel p{line-height:1.9;color:#d5d8f5;margin:.4rem 0 12px;font-size:.95rem}
+dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;margin:0}
+dt{color:var(--muted);font-size:.85rem}
+dd{margin:0;font-weight:700;font-size:.9rem}
+.ico{width:64px;height:64px;float:left;margin:0 0 6px 8px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+button{font-family:inherit;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:99px;padding:6px 14px;cursor:pointer;font-size:.85rem}
+button:hover,button.on{border-color:var(--accent);color:var(--accent)}
+@media(max-width:860px){main{grid-template-columns:1fr}.panel{position:static}}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<header>
+  <h1>🪐 نقشه منظومه شمسی</h1>
+  <p>روی هر سیاره کلیک کنید تا جزئیاتش را ببینید</p>
+</header>
+<main>
+  <section class="stage">
+    <svg id="map" viewBox="-500 -500 1000 1000" role="img" aria-label="نقشه منظومه شمسی">
+      <defs>
+        <radialGradient id="sunG"><stop offset="0" stop-color="#fff6c2"/><stop offset=".5" stop-color="#ffb84d"/><stop offset="1" stop-color="#ff6a00"/></radialGradient>
+        <radialGradient id="shade" cx=".3" cy=".5" r=".85"><stop offset=".4" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".8"/></radialGradient>
+        <radialGradient id="glow"><stop offset="0" stop-color="#ffb84d" stop-opacity=".5"/><stop offset="1" stop-color="#ffb84d" stop-opacity="0"/></radialGradient>
+      </defs>
+      <circle r="110" fill="url(#glow)"/>
+      <circle id="sun" r="38" fill="url(#sunG)" style="cursor:pointer"/>
+      <g id="orbits"></g>
+      <g id="planets"></g>
+    </svg>
+  </section>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</main>
+<div class="controls" style="position:relative;z-index:1;padding-bottom:20px">
+  <button id="reset">🔭 نمای کلی</button>
+  <button id="pause">⏸ توقف حرکت</button>
+  <span id="chips" style="display:contents"></span>
+</div>
+
+<script>
+const P=[
+{id:'mercury',n:'تیر (عطارد)',t:'سیاره سنگی',c:['#d9d2c8','#7d7468'],r:6,a:70,per:88,
+ d:'نزدیک‌ترین سیاره به خورشید و کوچک‌ترین سیاره منظومه است. چون جو ندارد، اختلاف دمای روز و شب آن بسیار زیاد است.',
+ s:{'قطر':'۴٬۸۷۹ کیلومتر','فاصله از خورشید':'۵۷٫۹ میلیون کیلومتر','طول سال':'۸۸ روز زمینی','چرخش به دور خود':'۵۸٫۶ روز زمینی','تعداد قمر':'۰','دما':'−۱۷۳ تا ۴۲۷ °C'}},
+{id:'venus',n:'ناهید (زهره)',t:'سیاره سنگی',c:['#f3d8a0','#b9853a'],r:10,a:120,per:224.7,
+ d:'داغ‌ترین سیاره منظومه شمسی است؛ جو غلیظ دی‌اکسید کربن آن گرما را به دام می‌اندازد. برخلاف بیشتر سیارات، وارونه می‌چرخد.',
+ s:{'قطر':'۱۲٬۱۰۴ کیلومتر','فاصله از خورشید':'۱۰۸٫۲ میلیون کیلومتر','طول سال':'۲۲۴٫۷ روز زمینی','چرخش به دور خود':'۲۴۳ روز (وارونه)','تعداد قمر':'۰','دما':'حدود ۴۶۷ °C'}},
+{id:'earth',n:'زمین',t:'سیاره سنگی',c:['#6fb8ff','#1f5fa8'],r:11,a:175,per:365.25,
+ d:'تنها جایی که تاکنون زندگی در آن شناخته شده است. حدود ۷۱٪ سطح آن را آب پوشانده است.',
+ s:{'قطر':'۱۲٬۷۴۲ کیلومتر','فاصله از خورشید':'۱۴۹٫۶ میلیون کیلومتر','طول سال':'۳۶۵٫۲۵ روز','چرخش به دور خود':'۲۴ ساعت','تعداد قمر':'۱ (ماه)','دما':'میانگین ۱۵ °C'}},
+{id:'mars',n:'بهرام (مریخ)',t:'سیاره سنگی',c:['#ff9a6b','#a63d1b'],r:8,a:228,per:687,
+ d:'به «سیاره سرخ» معروف است. بلندترین کوه منظومه، المپوس مونس، روی آن قرار دارد و ربات‌های زیادی آن را کاوش کرده‌اند.',
+ s:{'قطر':'۶٬۷۷۹ کیلومتر','فاصله از خورشید':'۲۲۷٫۹ میلیون کیلومتر','طول سال':'۶۸۷ روز زمینی','چرخش به دور خود':'۲۴٫۶ ساعت','تعداد قمر':'۲ (فوبوس و دیموس)','دما':'حدود −۶۳ °C'}},
+{id:'jupiter',n:'مشتری (برجیس)',t:'غول گازی',c:['#e8c9a0','#a9744a'],r:22,a:300,per:4333,
+ d:'بزرگ‌ترین سیاره منظومه است. لکه سرخ بزرگ آن توفانی است که قرن‌ها ادامه دارد.',
+ s:{'قطر':'۱۳۹٬۸۲۰ کیلومتر','فاصله از خورشید':'۷۷۸٫۵ میلیون کیلومتر','طول سال':'۱۱٫۹ سال زمینی','چرخش به دور خود':'۹٫۹ ساعت','تعداد قمر':'بیش از ۹۰','دما':'حدود −۱۱۰ °C'}},
+{id:'saturn',n:'کیوان (زحل)',t:'غول گازی',c:['#f2dfa8','#b8923f'],r:19,a:365,per:10759,ring:true,
+ d:'مشهور به حلقه‌های زیبایش که از یخ و سنگ ساخته شده‌اند. چگالی آن از آب کمتر است.',
+ s:{'قطر':'۱۱۶٬۴۶۰ کیلومتر','فاصله از خورشید':'۱٬۴۳۴ میلیون کیلومتر','طول سال':'۲۹٫۵ سال زمینی','چرخش به دور خود':'۱۰٫۷ ساعت','تعداد قمر':'بیش از ۱۴۰','دما':'حدود −۱۴۰ °C'}},
+{id:'uranus',n:'اورانوس',t:'غول یخی',c:['#bff4f6','#52aeb8'],r:14,a:420,per:30687,
+ d:'محور چرخش آن تقریباً خوابیده است و گویی روی پهلو می‌غلتد. رنگ آبی‌سبز آن از متان جو است.',
+ s:{'قطر':'۵۰٬۷۲۴ کیلومتر','فاصله از خورشید':'۲٬۸۷۲ میلیون کیلومتر','طول سال':'۸۴ سال زمینی','چرخش به دور خود':'۱۷ ساعت (وارونه)','تعداد قمر':'۲۸','دما':'حدود −۱۹۵ °C'}},
+{id:'neptune',n:'نپتون',t:'غول یخی',c:['#7aa6ff','#2b4fc4'],r:14,a:475,per:60190,
+ d:'دورترین سیاره شناخته‌شده و صاحب سریع‌ترین بادهای منظومه با سرعتی بیش از ۲۰۰۰ کیلومتر بر ساعت.',
+ s:{'قطر':'۴۹٬۲۴۴ کیلومتر','فاصله از خورشید':'۴٬۴۹۵ میلیون کیلومتر','طول سال':'۱۶۵ سال زمینی','چرخش به دور خود':'۱۶ ساعت','تعداد قمر':'۱۶','دما':'حدود −۲۰۱ °C'}}
+];
+const SUN={n:'خورشید',t:'ستاره',c:['#fff6c2','#ff6a00'],d:'ستاره مرکزی منظومه ما که بیش از ۹۹٪ جرم کل آن را دارد. انرژی آن از همجوشی هیدروژن به هلیوم در هسته‌اش می‌آید.',
+ s:{'قطر':'۱٬۳۹۲٬۷۰۰ کیلومتر','سن':'حدود ۴٫۶ میلیارد سال','دمای سطح':'حدود ۵٬۵۰۰ °C','دمای هسته':'حدود ۱۵ میلیون °C','تعداد سیاره':'۸'}};
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a={},p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.appendChild(e);return e};
+const defs=document.querySelector('defs'),og=document.getElementById('orbits'),pg=document.getElementById('planets');
+const MOONS={earth:[['ماه',2.2,'#cfcfcf',.9]],mars:[['فوبوس',1.3,'#a89a8c',1.6],['دیموس',1.1,'#b3a698',1]],jupiter:[['آیو',2.2,'#f0d77a',1.5],['اروپا',2,'#e8dcc8',1.1],['گانیمد',2.8,'#a7977f',.8],['کالیستو',2.6,'#8a7e6e',.55]],saturn:[['تیتان',2.8,'#e3b45a',.7],['رئا',1.8,'#d8d4cc',1.1]],uranus:[['میراندا',1.3,'#bbb',1.4],['تیتانیا',2,'#c9c3bb',.9],['اوبرون',2,'#a79f97',.65]],neptune:[['تریتون',2.4,'#e5dcd5',.8]]};
+const bands=(u,L,o=.75)=>L.forEach(([y,h,c])=>el('rect',{x:-1,y:y-h/2,width:2,height:h,fill:c,opacity:o},u));
+const ell=(u,cx,cy,rx,ry,f,o=1)=>el('ellipse',{cx,cy,rx,ry,fill:f,opacity:o},u);
+const DET={
+mercury:u=>{[[-.4,-.3,.22],[.3,-.1,.3],[-.1,.45,.18],[.5,.5,.14],[0,-.65,.12],[-.65,.2,.14]].forEach(([x,y,r])=>{el('circle',{cx:x,cy:y,r,fill:'#6b6359',opacity:.5},u);el('circle',{cx:x-r*.15,cy:y-r*.15,r:r*.8,fill:'#b0a79a',opacity:.5},u)})},
+venus:u=>{[[-.6,.12],[-.2,.1],[.2,.12],[.6,.1]].forEach(([y,s])=>el('path',{d:`M-1,${y} Q-.5,${y-s} 0,${y} T1,${y}`,fill:'none',stroke:'#fff3d0','stroke-width':.14,opacity:.45},u));ell(u,-.3,-.3,.4,.2,'#fff',.15)},
+earth:u=>{el('path',{d:'M-.6,-.3 Q-.3,-.75 .05,-.45 Q.1,-.1 -.2,.1 Q-.35,.45 -.45,.2 Q-.7,0 -.6,-.3Z',fill:'#4f9a4a'},u);el('path',{d:'M.25,-.1 Q.6,-.3 .75,.05 Q.6,.5 .35,.45 Q.2,.2 .25,-.1Z',fill:'#8fa14e'},u);ell(u,0,-.95,.55,.22,'#fff',.9);ell(u,0,.97,.45,.15,'#fff',.8);ell(u,-.1,-.55,.4,.08,'#fff',.55);ell(u,.3,.3,.35,.07,'#fff',.5);ell(u,-.4,.55,.3,.06,'#fff',.5)},
+mars:u=>{ell(u,-.2,.2,.45,.2,'#6e2a14',.45);ell(u,.4,-.2,.3,.15,'#6e2a14',.4);ell(u,-.5,-.35,.2,.1,'#6e2a14',.35);ell(u,0,-.95,.45,.22,'#fff',.85);ell(u,0,.97,.3,.12,'#fff',.6)},
+jupiter:u=>{bands(u,[[-.8,.18,'#c99a6a'],[-.5,.15,'#f1dcc0'],[-.25,.17,'#b9764a'],[0,.12,'#efd9b8'],[.22,.18,'#b9764a'],[.5,.14,'#f1dcc0'],[.75,.2,'#c99a6a']]);ell(u,.35,.3,.22,.12,'#c4492a',.95);ell(u,.35,.3,.28,.17,'#e8a07a',.3)},
+saturn:u=>bands(u,[[-.75,.2,'#d8bf80'],[-.4,.15,'#f6e8bd'],[-.1,.18,'#c9a85f'],[.2,.15,'#f1deae'],[.5,.2,'#c2a05a'],[.8,.2,'#d8bf80']],.7),
+uranus:u=>{bands(u,[[-.5,.2,'#e6ffff'],[0,.15,'#9de0e6'],[.5,.2,'#e6ffff']],.35);ell(u,0,-1,.6,.35,'#fff',.4)},
+neptune:u=>{bands(u,[[-.6,.15,'#9bbcff'],[-.2,.12,'#1d3aa8'],[.3,.15,'#9bbcff'],[.7,.15,'#1d3aa8']],.45);ell(u,-.3,.1,.28,.14,'#0e1f66',.7);ell(u,.2,-.35,.3,.05,'#fff',.7)}};
+const ringPart=(G,R,back)=>{const g=el('g',{transform:'rotate(-20)'},G);[[1.55,3,'#b89f6a'],[1.8,4.5,'#e6cf93'],[2.1,2.5,'#cdb780']].forEach(([k,w,c])=>{const rx=R*k,ry=rx*.28;el('path',{d:`M${-rx} 0 A${rx} ${ry} 0 0 ${back?1:0} ${rx} 0`,fill:'none',stroke:c,'stroke-width':w,opacity:.9},g)})};
+function buildPlanet(p){
+  const G=p.g,R=p.r,id=p.id;
+  const ag=el('radialGradient',{id:'a'+id},defs);
+  el('stop',{offset:.7,'stop-color':p.c[0],'stop-opacity':.35},ag);el('stop',{offset:1,'stop-color':p.c[0],'stop-opacity':0},ag);
+  el('circle',{r:R*1.4,fill:`url(#a${id})`},G);
+  if(p.ring)ringPart(G,R,true);
+  const cp=el('clipPath',{id:'c'+id},defs);el('circle',{r:R},cp);
+  el('circle',{r:R,fill:`url(#g${id})`},G);
+  const d=el('g',{'clip-path':`url(#c${id})`},G);
+  DET[id]&&DET[id](el('g',{transform:`scale(${R})`},d));
+  p.sh=el('g',{},G);el('circle',{r:R,fill:'url(#shade)'},p.sh);
+  if(p.ring)ringPart(G,R,false);
+  p.moons=(MOONS[id]||[]).map((m,i)=>{const orb=(p.ring?R*2.4:R+10)+i*7;el('circle',{class:'morbit',r:orb},G);const mg=el('g',{style:'pointer-events:none'},G);el('circle',{r:m[1],fill:m[2]},mg);return{g:mg,orb,ang:Math.random()*6.28,sp:m[3]}});
+}
+P.forEach((p,i)=>{
+  const g=el('radialGradient',{id:'g'+p.id,cx:'.35',cy:'.35'},defs);
+  el('stop',{offset:0,'stop-color':p.c[0]},g);el('stop',{offset:1,'stop-color':p.c[1]},g);
+  el('circle',{class:'orbit',r:p.a},og);
+  p.g=el('g',{class:'planet',tabindex:0,role:'button','aria-label':p.n},pg);
+  buildPlanet(p);
+  el('circle',{class:'ring',r:p.r+6},p.g);
+  el('circle',{class:'hit',r:Math.max(p.r+10,18)},p.g);
+  p.lb=el('text',{class:'label',y:p.r+20},p.g);p.lb.textContent=p.n.split(' ')[0];
+  p.ang=Math.random()*Math.PI*2;
+  p.sp=Math.PI*2/(Math.pow(p.per,.45)*9); // visual speed (rad/s), not to scale
+  p.g.addEventListener('click',()=>show(p));
+  p.g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show(p)}});
+});
+const panel=document.getElementById('panel');
+const map=document.getElementById('map');
+let target=null,cam={x:0,y:0,w:1000};
+document.getElementById('reset').onclick=()=>{target=null;P.forEach(x=>x.g.classList.remove('sel'));document.querySelectorAll('#chips button').forEach(b=>b.classList.remove('on'))};
+function show(p){
+  target=p;
+  P.forEach(x=>x.g.classList.toggle('sel',x===p));
+  document.querySelectorAll('#chips button').forEach(b=>b.classList.toggle('on',b.dataset.id===p.id));
+  panel.innerHTML=`<svg class="ico" viewBox="-30 -30 60 60"><defs><radialGradient id="pi" cx=".35" cy=".35"><stop offset="0" stop-color="${p.c[0]}"/><stop offset="1" stop-color="${p.c[1]}"/></radialGradient></defs>${p.ring?'<ellipse rx="28" ry="8" fill="none" stroke="#e6cf93" stroke-width="3" transform="rotate(-20)"/>':''}<circle r="${p.ring?14:22}" fill="url(#pi)"/></svg>
+  <h2>${p.n}</h2><span class="tag">${p.t}</span><p>${p.d}</p>
+  <dl>${Object.entries(p.s).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}${(MOONS[p.id]||[]).length?`<dt>قمرهای نمایش‌داده‌شده</dt><dd>${MOONS[p.id].map(m=>m[0]).join('، ')}</dd>`:''}</dl>`;
+}
+document.getElementById('sun').addEventListener('click',()=>show(SUN));
+const chips=document.getElementById('chips');
+[SUN,...P].forEach(p=>{const b=document.createElement('button');b.textContent=p.n.split(' ')[0];b.dataset.id=p.id||'sun';b.onclick=()=>show(p);chips.appendChild(b)});
+show(P[2]);target=null;
+let paused=false,last=performance.now();
+document.getElementById('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'▶ ادامه حرکت':'⏸ توقف حرکت'};
+function tick(t){const dt=Math.min((t-last)/1000,.1);last=t;
+  P.forEach(p=>{if(!paused){p.ang+=p.sp*dt;p.moons.forEach(m=>m.ang+=m.sp*dt)}p.g.setAttribute('transform',`translate(${Math.cos(p.ang)*p.a},${Math.sin(p.ang)*p.a})`);p.sh.setAttribute('transform',`rotate(${p.ang*57.2958})`);p.moons.forEach(m=>m.g.setAttribute('transform',`translate(${Math.cos(m.ang)*m.orb},${Math.sin(m.ang)*m.orb})`))});
+  let tx=0,ty=0,tw=1000;
+  if(target){const a=target.a||0,g=target.ang||0;tx=Math.cos(g)*a;ty=Math.sin(g)*a;tw=Math.max(130,(target.r||38)*12)}
+  const k=1-Math.exp(-dt*4);
+  cam.x+=(tx-cam.x)*k;cam.y+=(ty-cam.y)*k;cam.w+=(tw-cam.w)*k;
+  map.setAttribute('viewBox',`${cam.x-cam.w/2} ${cam.y-cam.w/2} ${cam.w} ${cam.w}`);
+  requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+// starfield
+const cv=document.getElementById('stars'),cx=cv.getContext('2d');let S=[];
+function rs(){cv.width=innerWidth;cv.height=innerHeight;S=Array.from({length:180},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*1.3+.2,o:Math.random()}));
+  cx.clearRect(0,0,cv.width,cv.height);S.forEach(s=>{cx.globalAlpha=.3+s.o*.7;cx.fillStyle='#fff';cx.beginPath();cx.arc(s.x,s.y,s.r,0,7);cx.fill()})}
+addEventListener('resize',rs);rs();
+</script>
+</body>
+</html>
